@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- Основные SEO теги для Яндекс, Google и нейросетевых поисковиков -->
+    <title>AIhim — Симулятор Алхимии на базе ИИ | Объединяй Элементы</title>
+    <meta name="description" content="AIhim (Айхим) — уникальный интерактивный симулятор алхимии на базе искусственного интеллекта. Объединяйте стихии, первоматерию, управляйте фазами дня и ночи, открывайте новые химические соединения и заклинания." />
+    <meta name="keywords" content="AIhim, Айхим, алхимия ИИ, симулятор алхимии, играть в алхимию, объединение элементов, первоматерия, трансмутация, нейросеть алхимия, кузня элементов, арканы, рецепты алхимии, онлайн игры ИИ, генерация элементов, ProTalk API, искусственный интеллект, химические элементы" />
+    <meta name="author" content="AIhim Team (ООО «РентРоп»)" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="yandex" content="index, follow" />
+    <link rel="canonical" href="https://aihim.ru/" />
+
+    <!-- GEO теги для геопривязки и нейросетевых поисковиков (Perplexity, SearchGPT, Yandex) -->
+    <meta name="geo.region" content="RU" />
+    <meta name="geo.placename" content="Россия" />
+    <meta name="geo.position" content="55.7558;37.6173" />
+    <meta name="ICBM" content="55.7558, 37.6173" />
+    <meta name="language" content="Russian" />
+
+    <!-- Favicon для вкладки браузера (оставлен без изменений) -->
+    <link rel="icon" type="image/png" href="/file/7/aiicon.png" />
+
+    <!-- PWA и мобильные иконки Android, iPhone, iPad, Яндекс Табло, Windows -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/file/47/apple_touch_icon_180x180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/file/46/apple_touch_icon_167x167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/file/45/apple_touch_icon_152x152.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/file/44/apple_touch_icon_120x120.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="AIhim" />
+    <meta name="application-name" content="AIhim" />
+    <meta name="theme-color" content="#F5F2ED" />
+
+    <!-- Яндекс Табло, Плитки и RSS/Sitemap -->
+    <link rel="yandex-tableau-widget" href="/yandex-tableau.json" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <meta name="msapplication-TileColor" content="#F5F2ED" />
+    <meta name="msapplication-TileImage" content="/file/50/mstile_150x150.png" />
+    <link rel="alternate" type="application/rss+xml" title="Блог AIhim — Статьи об алхимии ИИ" href="/rss.xml" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+
+    <!-- Open Graph / VK / Telegram / Discord -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://aihim.ru/" />
+    <meta property="og:title" content="AIhim — Симулятор Алхимии на базе ИИ | Объединяй Элементы" />
+    <meta property="og:description" content="Уникальный симулятор алхимии, управляемый ИИ. Проводите великую трансмутацию первоматерии, контролируйте фазы мира, закаляйте элементы в кузне и продвигайтесь в рангах." />
+    <meta property="og:image" content="/file/53/og_banner_1200x630.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="AIhim — алхимический верстак и симулятор ИИ" />
+    <meta property="vk:image" content="/file/54/vk_share_1074x480.jpg" />
+    <meta property="yandex_recommendations_image" content="/file/55/yandex_banner_1200x600.jpg" />
+    <meta property="og:site_name" content="AIhim (Айхим)" />
+    <meta property="og:locale" content="ru_RU" />
+
+    <!-- Twitter Card SEO -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://aihim.ru/" />
+    <meta name="twitter:title" content="AIhim — Симулятор Алхимии на базе ИИ | Объединяй Элементы" />
+    <meta name="twitter:description" content="Уникальный симулятор алхимии, управляемый ИИ. Проводите великую трансмутацию первоматерии, контролируйте фазы мира, закаляйте элементы в кузне и продвигайтесь в рангах." />
+    <meta name="twitter:image" content="/file/56/twitter_card_1200x600.jpg" />
+
+    <!-- Schema.org JSON-LD Структурированные данные для Google, Яндекс и ИИ-поисковиков -->
+    <script type="application/ld+json" id="aihim-structured-data">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://aihim.ru/#organization",
+          "name": "AIhim (ООО «РентРоп»)",
+          "url": "https://aihim.ru",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://aihim.ru/file/42/pwa_icon_512x512.png",
+            "width": 512,
+            "height": 512
+          },
+          "sameAs": [
+            "https://t.me/AI_HimBot"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://aihim.ru/#website",
+          "url": "https://aihim.ru",
+          "name": "AIhim (Айхим) — Симулятор Алхимии ИИ",
+          "inLanguage": "ru-RU",
+          "publisher": {
+            "@id": "https://aihim.ru/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://aihim.ru/blog?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://aihim.ru/#webapp",
+          "url": "https://aihim.ru",
+          "name": "AIhim (Айхим) — Симулятор Алхимии на базе ИИ",
+          "applicationCategory": "GameApplication",
+          "operatingSystem": "All",
+          "browserRequirements": "Requires JavaScript. Requires HTML5.",
+          "image": "https://aihim.ru/file/53/og_banner_1200x630.jpg",
+          "description": "Интерактивный симулятор алхимии нового поколения. Искусственный интеллект генерирует уникальные результаты синтеза элементов на основе стихий, латинских слов силы и законов мироздания.",
+          "inLanguage": "ru-RU",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "RUB"
+          },
+          "creator": {
+            "@id": "https://aihim.ru/#organization"
+          }
+        },
+        {
+          "@type": "Blog",
+          "@id": "https://aihim.ru/blog#blog",
+          "url": "https://aihim.ru/blog",
+          "name": "Журнал алхимика AIhim",
+          "description": "Статьи, руководства и исследования нейросетевой алхимии, слоёв реальности и заклинаний.",
+          "inLanguage": "ru-RU",
+          "publisher": {
+            "@id": "https://aihim.ru/#organization"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://aihim.ru/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Что такое AIhim?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "AIhim (Айхим) — это онлайн-симулятор алхимии и PWA-приложение, использующее искусственный интеллект для проведения трансмутаций первоэлементов в реальном времени."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Как открывать новые элементы?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Перетащите два элемента на алхимический стол и нажмите «Синтезировать». ИИ вычислит реакцию с учётом фазы дня, слов силы и открытых законов мира."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Как установить AIhim на телефон Android или iPhone?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Откройте раздел Профиль в приложении AIhim и нажмите кнопку установки PWA. На iPhone также можно выбрать «Поделиться» -> «На экран Домой» в браузере Safari, после чего включатся пуш-уведомления."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body>
+    <!-- Hidden Semantic Knowledge Base for Search Engine Bots & LLM Web Crawlers -->
+    <div id="seo-knowledge-base" class="sr-only font-serif" style="display:none;" aria-hidden="true">
+      <h1>AIhim (Айхим) — Великая Алхимическая Лаборатория ИИ</h1>
+      <p>
+        Добро пожаловать в официальный сервис AIhim — интерактивный симулятор алхимии и первоматерии, работающий на базе нейросетей нового поколения.
+        Соединяйте Огонь, Воду, Землю, Воздух, Эфир, Хаос и создавайте тысячи уникальных элементов, аномалий и артефактов.
+      </p>
+      <h2>Ключевые особенности игры Айхим:</h2>
+      <ul>
+        <li>Трансмутация стихий с использованием ИИ (ProTalk API)</li>
+        <li>Система латинских заклинаний и слов силы (Vita, Anima, Ignis, Glacies, Cosmos)</li>
+        <li>Кузня элементов для повышения уровня закалки и температурного режима</li>
+        <li>12 слоёв реальности и фазы мира (День / Ночь)</li>
+        <li>Система рангов от Ученика до Демиурга</li>
+        <li>Интеграция с Telegram Bot и Telegram Mini App</li>
+        <li>Установка PWA на Android и iPhone и мобильные пуш-уведомления</li>
+      </ul>
+      <nav aria-label="Основные разделы">
+        <a href="/blog">Журнал и статьи блога AIhim</a>
+        <a href="/arcana">Колесо Аркан</a>
+        <a href="/rate">Тарифы и рейтинг алхимиков</a>
+        <a href="/profile">Профиль и установка приложения</a>
+      </nav>
+    </div>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

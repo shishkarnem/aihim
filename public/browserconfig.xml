@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+  <msapplication>
+    <tile>
+      <square70x70logo src="/file/48/yandex_120x120.png"/>
+      <square150x150logo src="/file/50/mstile_150x150.png"/>
+      <wide310x150logo src="/file/51/mstile_310x150.png"/>
+      <square310x310logo src="/file/52/mstile_310x310.png"/>
+      <TileColor>#F5F2ED</TileColor>
+    </tile>
+  </msapplication>
+</browserconfig>

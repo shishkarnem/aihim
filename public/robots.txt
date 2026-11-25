@@ -1,0 +1,65 @@
+User-agent: *
+Allow: /
+Allow: /blog
+Allow: /blog/
+Allow: /rate
+Allow: /arcana
+Allow: /oferta
+Disallow: /admin
+Disallow: /system-admin
+Disallow: /api/
+
+User-agent: Yandex
+Allow: /
+Allow: /blog
+Allow: /blog/
+Disallow: /admin
+Disallow: /system-admin
+Disallow: /api/
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&fbclid /
+
+User-agent: Googlebot
+Allow: /
+Allow: /blog
+Allow: /blog/
+Disallow: /admin
+Disallow: /system-admin
+Disallow: /api/
+
+User-agent: GPTBot
+Allow: /
+Allow: /blog
+Allow: /llms.txt
+
+User-agent: OAI-SearchBot
+Allow: /
+Allow: /blog
+Allow: /llms.txt
+
+User-agent: ChatGPT-User
+Allow: /
+Allow: /blog
+Allow: /llms.txt
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /blog
+Allow: /llms.txt
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /blog
+Allow: /llms.txt
+
+User-agent: Anthropic-AI
+Allow: /
+Allow: /blog
+Allow: /llms.txt
+
+User-agent: Google-Extended
+Allow: /
+Allow: /blog
+Allow: /llms.txt
+
+Host: https://aihim.ru
+Sitemap: https://aihim.ru/sitemap.xml
