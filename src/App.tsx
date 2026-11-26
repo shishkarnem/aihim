@@ -1688,7 +1688,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col max-w-5xl mx-auto px-4 pb-24 md:pb-12 pt-6 overflow-y-auto relative">
+    <div className="min-h-screen flex flex-col max-w-5xl mx-auto px-4 pb-24 md:pb-12 pt-6 relative">
       {/* 12th Century Ancient Manuscript SVG & Smoldering Embers Background */}
       <AncientManuscriptBackground />
 

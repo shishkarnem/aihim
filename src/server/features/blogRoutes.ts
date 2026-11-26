@@ -20,6 +20,7 @@ export function registerBlogRoutes(app: express.Express) {
       await ensureBlogTableAndSeed();
       const showAll = req.query.all === '1' || req.query.all === 'true';
       if (showAll) {
+        res.setHeader('Cache-Control', 'no-store');
         const posts = await getAllBlogPostsAdmin();
         const pinnedCount = posts.filter((p) => p.is_pinned).length;
         return res.json({
@@ -34,8 +35,16 @@ export function registerBlogRoutes(app: express.Express) {
       const category = typeof req.query.category === 'string' ? req.query.category : undefined;
       const offset = typeof req.query.offset === 'string' ? Number(req.query.offset) : 0;
       const limit = typeof req.query.limit === 'string' ? Number(req.query.limit) : 20;
+      const includeContent = req.query.full === '1' || req.query.full === 'true';
 
-      const result = await getPublishedBlogPostsPaginated({ q, category, offset, limit });
+      res.setHeader('Cache-Control', 'no-store');
+      const result = await getPublishedBlogPostsPaginated({
+        q,
+        category,
+        offset,
+        limit,
+        includeContent
+      });
       res.json(result);
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -50,6 +59,7 @@ export function registerBlogRoutes(app: express.Express) {
       if (!post) {
         return res.status(404).json({ error: 'Статья не найдена' });
       }
+      res.setHeader('Cache-Control', 'no-store');
       res.json({ post });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });

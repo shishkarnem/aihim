@@ -5,6 +5,7 @@ import {
   SAV_DEFAULT_FALLBACK_IMAGE,
   ensureBlogTableAndSeed,
   estimateReadingTime,
+  invalidateBlogCache,
   normalizeBlogCoverImage,
   slugifyCyrillic
 } from './blog';
@@ -498,6 +499,10 @@ export async function syncSavRssFeed(options: {
         byExternalId.set(externalId, { id: newId, external_id: externalId, external_updated_at: incomingUpdatedAt });
         added++;
       }
+    }
+
+    if (added > 0 || updated > 0) {
+      invalidateBlogCache();
     }
 
     const result: SavRssSyncResult = {

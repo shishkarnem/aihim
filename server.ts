@@ -6,6 +6,8 @@ import dns from 'dns';
 import dotenv from 'dotenv';
 import {
   initializeDatabase,
+  ensureBlogTableAndSeed,
+  getPublishedBlogPostsPaginated,
   queryGet,
   queryRun,
   syncSavRssFeed
@@ -38,6 +40,9 @@ dotenv.config();
 async function startServer() {
   try {
     await initializeDatabase();
+    void ensureBlogTableAndSeed()
+      .then(() => getPublishedBlogPostsPaginated({ offset: 0, limit: 20 }))
+      .catch(() => {});
   } catch (err) {
     console.error('[PostgreSQL] Initialization warning:', err);
   }
@@ -97,12 +102,30 @@ async function startServer() {
     const localDir = typeof __dirname !== 'undefined' ? __dirname : cwdDist;
     const distPath = fs.existsSync(path.join(cwdDist, 'index.html')) ? cwdDist : localDir;
 
-    app.use(express.static(distPath, { index: false }));
+    app.use(
+      express.static(distPath, {
+        index: false,
+        setHeaders: (res, filePath) => {
+          if (
+            filePath.endsWith('sw.js') ||
+            filePath.endsWith('push-sw.js') ||
+            filePath.endsWith('registerSW.js') ||
+            filePath.endsWith('manifest.webmanifest') ||
+            filePath.endsWith('.html')
+          ) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+          } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        }
+      })
+    );
     app.get('*', async (req, res) => {
       if (/\.(?:png|jpe?g|gif|webp|svg|ico|woff2?|ttf|eot|map|css|js|webmanifest)$/i.test(req.path || '')) {
         return res.status(404).send('Not found');
       }
       const origin = resolveSiteOrigin(req);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
       try {
         const indexPath = path.join(distPath, 'index.html');

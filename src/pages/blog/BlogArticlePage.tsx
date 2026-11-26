@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useLayoutEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -9,88 +9,155 @@ import {
   Sparkles,
   User,
   Check,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { NeurosphereLoader } from '../../components/ui/NeurosphereLoader';
 import { publishSeoOverride } from '../../components/seo/SeoHeadManager';
 import { BlogMarkdownRenderer } from './BlogMarkdownRenderer';
-import { resolveCardVideoUrl, type BlogArticleItem } from './BlogListPage';
+import { BlogCoverMedia, type BlogArticleItem } from './BlogListPage';
 import {
   AIHIM_FALLBACK_COVER,
+  ProgressiveBlogImage,
   TgButtonsBlock,
+  TgVideoBlock,
   isSafeBlogUrl,
   normalizeClientMediaUrl,
-  type TgButtonItem
+  type TgButtonItem,
+  type TgMediaItem
 } from './components/BlogRichBlocks';
+import {
+  getCachedBlogArticle,
+  getCachedRelatedArticles,
+  prefetchBlogPost,
+  scrollPageToY,
+  setCachedBlogArticle
+} from './components/blogCache';
 
-export const BlogArticlePage: React.FC = () => {
+function publishArticleSeo(loaded: BlogArticleItem) {
+  const origin = window.location.origin;
+  const imgCover = normalizeClientMediaUrl(loaded.cover_image_url || loaded.cover_image);
+  const coverAbs = imgCover.startsWith('http')
+    ? imgCover
+    : `${origin}${imgCover.startsWith('/') ? '' : '/'}${imgCover}`;
+
+  publishSeoOverride({
+    title: loaded.seo_title || `${loaded.title} — Блог AIhim`,
+    description: loaded.seo_description || loaded.excerpt,
+    keywords: loaded.seo_keywords || (loaded.tags || []).join(', '),
+    canonical: `${origin}/blog/${loaded.slug}`,
+    ogType: 'article',
+    ogImage: coverAbs,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'TechArticle',
+      headline: loaded.title,
+      description: loaded.seo_description || loaded.excerpt,
+      image: [coverAbs],
+      datePublished: new Date(loaded.created_at).toISOString(),
+      dateModified: new Date(loaded.updated_at || loaded.created_at).toISOString(),
+      author: { '@type': 'Person', name: loaded.author_name },
+      publisher: {
+        '@type': 'Organization',
+        name: 'AIhim (ООО «РентРоп»)',
+        logo: { '@type': 'ImageObject', url: `${origin}/file/42/pwa_icon_512x512.png` }
+      },
+      mainEntityOfPage: { '@type': 'WebPage', '@id': `${origin}/blog/${loaded.slug}` },
+      keywords: loaded.seo_keywords || (loaded.tags || []).join(', ')
+    }
+  });
+}
+
+export const BlogArticlePage: React.FC = memo(() => {
   const { slug } = useParams<{ slug: string }>();
-  const [post, setPost] = useState<BlogArticleItem | null>(null);
-  const [relatedPosts, setRelatedPosts] = useState<BlogArticleItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialCached = slug ? getCachedBlogArticle(slug) : null;
+  const initialRelated = slug ? getCachedRelatedArticles(slug, 3) : [];
+
+  const [post, setPost] = useState<BlogArticleItem | null>(() => initialCached?.post || null);
+  const [relatedPosts, setRelatedPosts] = useState<BlogArticleItem[]>(() => initialRelated);
+  const [loading, setLoading] = useState<boolean>(() => !initialCached?.post);
   const [notFound, setNotFound] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [coverLightboxOpen, setCoverLightboxOpen] = useState(false);
+
+  // Always open every article from the very top of the page
+  useLayoutEffect(() => {
+    scrollPageToY(0);
+    const raf = window.requestAnimationFrame(() => {
+      scrollPageToY(0);
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [slug]);
+
+  useEffect(() => {
+    if (!coverLightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCoverLightboxOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [coverLightboxOpen]);
 
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
-    setLoading(true);
+    setCoverLightboxOpen(false);
     setNotFound(false);
+
+    const cached = getCachedBlogArticle(slug);
+    const cachedRelated = getCachedRelatedArticles(slug, 3);
+    if (cachedRelated.length > 0) {
+      setRelatedPosts(cachedRelated);
+    }
+
+    if (cached?.post) {
+      setPost(cached.post);
+      setLoading(false);
+      publishArticleSeo(cached.post);
+    } else {
+      setPost(null);
+      setLoading(true);
+    }
 
     (async () => {
       try {
         const res = await fetch(`/api/blog/posts/${encodeURIComponent(slug)}?track=1`);
         if (!res.ok) {
-          if (!cancelled) setNotFound(true);
+          if (!cancelled && !cached?.post) setNotFound(true);
           return;
         }
         const data = await res.json();
         if (!cancelled && data.post) {
           const loaded: BlogArticleItem = data.post;
-          setPost(loaded);
-          const origin = window.location.origin;
-          const imgCover = normalizeClientMediaUrl(loaded.cover_image_url || loaded.cover_image);
-          const coverAbs = imgCover.startsWith('http')
-            ? imgCover
-            : `${origin}${imgCover.startsWith('/') ? '' : '/'}${imgCover}`;
-
-          publishSeoOverride({
-            title: loaded.seo_title || `${loaded.title} — Блог AIhim`,
-            description: loaded.seo_description || loaded.excerpt,
-            keywords: loaded.seo_keywords || (loaded.tags || []).join(', '),
-            canonical: `${origin}/blog/${loaded.slug}`,
-            ogType: 'article',
-            ogImage: coverAbs,
-            jsonLd: {
-              '@context': 'https://schema.org',
-              '@type': 'TechArticle',
-              headline: loaded.title,
-              description: loaded.seo_description || loaded.excerpt,
-              image: [coverAbs],
-              datePublished: new Date(loaded.created_at).toISOString(),
-              dateModified: new Date(loaded.updated_at || loaded.created_at).toISOString(),
-              author: { '@type': 'Person', name: loaded.author_name },
-              publisher: {
-                '@type': 'Organization',
-                name: 'AIhim (ООО «РентРоп»)',
-                logo: { '@type': 'ImageObject', url: `${origin}/file/42/pwa_icon_512x512.png` }
-              },
-              mainEntityOfPage: { '@type': 'WebPage', '@id': `${origin}/blog/${loaded.slug}` },
-              keywords: loaded.seo_keywords || (loaded.tags || []).join(', ')
+          setCachedBlogArticle(loaded);
+          setPost((prev) => {
+            if (
+              prev &&
+              prev.slug === loaded.slug &&
+              prev.updated_at === loaded.updated_at &&
+              prev.content_markdown === loaded.content_markdown
+            ) {
+              return prev.views_count === loaded.views_count
+                ? prev
+                : { ...prev, views_count: loaded.views_count };
             }
+            return loaded;
           });
+          publishArticleSeo(loaded);
         }
 
-        const listRes = await fetch('/api/blog/posts?limit=6&offset=0');
-        if (listRes.ok) {
-          const listData = await listRes.json();
-          if (!cancelled && Array.isArray(listData.posts)) {
-            setRelatedPosts(listData.posts.filter((p: BlogArticleItem) => p.slug !== slug).slice(0, 3));
+        if (cachedRelated.length === 0) {
+          const listRes = await fetch('/api/blog/posts?limit=6&offset=0');
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            if (!cancelled && Array.isArray(listData.posts)) {
+              setRelatedPosts(listData.posts.filter((p: BlogArticleItem) => p.slug !== slug).slice(0, 3));
+            }
           }
         }
       } catch (err) {
         console.error('Error loading blog article:', err);
-        if (!cancelled) setNotFound(true);
+        if (!cancelled && !cached?.post) setNotFound(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -137,7 +204,23 @@ export const BlogArticlePage: React.FC = () => {
 
   const shareUrl = encodeURIComponent(window.location.href);
   const shareTitle = encodeURIComponent(post.title);
-  const hasInlineTgButtons = String(post.content_markdown || '').includes('```tg-buttons');
+  const rawMd = String(post.content_markdown || '');
+  const hasInlineTgButtons = rawMd.includes('```tg-buttons');
+  const hasInlineRichMedia =
+    rawMd.includes('```tg-video') ||
+    rawMd.includes('```tg-gallery') ||
+    /!\[[^\]]*\]\([^)]+\)/.test(rawMd);
+
+  let parsedMedia: TgMediaItem[] = [];
+  if (post.media_json) {
+    try {
+      const m = JSON.parse(post.media_json);
+      if (Array.isArray(m)) parsedMedia = m;
+    } catch {
+      parsedMedia = [];
+    }
+  }
+
   let extraButtons: TgButtonItem[][] = [];
   if (!hasInlineTgButtons && post.buttons_json) {
     try {
@@ -149,6 +232,19 @@ export const BlogArticlePage: React.FC = () => {
   }
   const safeTelegramPostUrl = isSafeBlogUrl(post.telegram_post_url) ? post.telegram_post_url : '';
 
+  const singlePhotoItem = parsedMedia.find((m) => m.type !== 'video' && m.url && isSafeBlogUrl(m.url));
+  const rawCoverCandidate = (post.cover_image_url || post.cover_image || singlePhotoItem?.url || '').trim();
+  const normalizedCover = normalizeClientMediaUrl(rawCoverCandidate);
+  const hasCustomOrPhotoCover =
+    !post.external_id ||
+    Boolean(singlePhotoItem) ||
+    (rawCoverCandidate !== '' && normalizedCover !== AIHIM_FALLBACK_COVER);
+  const standaloneVideoUrl =
+    !hasInlineRichMedia && post.cover_video_url && isSafeBlogUrl(post.cover_video_url)
+      ? post.cover_video_url.trim()
+      : '';
+  const showStandaloneCoverImage = !hasInlineRichMedia && !standaloneVideoUrl && hasCustomOrPhotoCover;
+
   return (
     <div className="w-full space-y-6 pb-8">
       {/* Breadcrumbs */}
@@ -157,8 +253,12 @@ export const BlogArticlePage: React.FC = () => {
           Главная
         </Link>
         <span aria-hidden="true">·</span>
-        <Link to="/blog" className="hover:text-gold transition-colors">
-          Журнал алхимика
+        <Link
+          to="/blog"
+          className="inline-flex items-center gap-1 hover:text-gold transition-colors font-semibold text-sepia"
+        >
+          <ArrowLeft size={15} />
+          <span>Журнал алхимика</span>
         </Link>
         <span aria-hidden="true">·</span>
         <span className="text-amber-900 font-semibold">{post.category}</span>
@@ -215,6 +315,36 @@ export const BlogArticlePage: React.FC = () => {
             <p className="text-[16px] sm:text-[18px] text-sepia/85 italic leading-relaxed border-b border-sepia/15 pb-5">
               {post.excerpt}
             </p>
+          )}
+
+          {/* Standalone cover image / single photo for posts without inline gallery or video */}
+          {standaloneVideoUrl && (
+            <TgVideoBlock
+              item={{
+                type: 'video',
+                url: standaloneVideoUrl,
+                postUrl: safeTelegramPostUrl || undefined
+              }}
+            />
+          )}
+
+          {showStandaloneCoverImage && (
+            <figure className="my-4">
+              <div className="aspect-[16/9] w-full max-h-[460px] rounded-2xl border border-sepia/25 overflow-hidden shadow-sm">
+                <ProgressiveBlogImage
+                  src={normalizedCover}
+                  alt={post.title}
+                  priority
+                  onClick={() => setCoverLightboxOpen(true)}
+                  className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                />
+              </div>
+              {singlePhotoItem?.caption && (
+                <figcaption className="mt-2 text-center text-[14px] italic text-sepia/75">
+                  {singlePhotoItem.caption}
+                </figcaption>
+              )}
+            </figure>
           )}
 
           {/* Markdown Body */}
@@ -307,50 +437,67 @@ export const BlogArticlePage: React.FC = () => {
         <section className="space-y-4">
           <h2 className="text-[20px] font-gothic font-bold text-sepia">Читайте также в журнале AIhim</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {relatedPosts.map((rel) => {
-              const relVideo = resolveCardVideoUrl(rel);
-              const relImage = normalizeClientMediaUrl(rel.cover_image_url || rel.cover_image);
-              return (
-                <Link
-                  key={rel.id}
-                  to={`/blog/${rel.slug}`}
-                  className="rounded-2xl border border-sepia/25 bg-transparent backdrop-blur-md overflow-hidden hover:border-gold transition-all flex flex-col group"
-                >
-                  <div className="aspect-[4/3] overflow-hidden border-b border-sepia/15">
-                    {relVideo ? (
-                      <video
-                        src={relVideo}
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        preload="auto"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <img
-                        src={relImage}
-                        alt={rel.title}
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = AIHIM_FALLBACK_COVER;
-                        }}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    )}
-                  </div>
-                  <div className="p-4 space-y-1.5">
-                    <div className="text-[14px] text-amber-800 font-semibold">{rel.category}</div>
-                    <h3 className="text-[16px] font-gothic font-bold text-sepia group-hover:text-amber-900 leading-snug break-words">
-                      {rel.title}
-                    </h3>
-                  </div>
-                </Link>
-              );
-            })}
+            {relatedPosts.map((rel) => (
+              <Link
+                key={rel.id}
+                to={`/blog/${rel.slug}`}
+                onMouseEnter={() => prefetchBlogPost(rel.slug)}
+                onFocus={() => prefetchBlogPost(rel.slug)}
+                className="rounded-2xl border border-sepia/25 bg-transparent backdrop-blur-md overflow-hidden hover:border-gold transition-all flex flex-col group"
+              >
+                <div className="aspect-[4/3] overflow-hidden border-b border-sepia/15">
+                  <BlogCoverMedia
+                    post={rel}
+                    className="group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+                <div className="p-4 space-y-1.5">
+                  <div className="text-[14px] text-amber-800 font-semibold">{rel.category}</div>
+                  <h3 className="text-[16px] font-gothic font-bold text-sepia group-hover:text-amber-900 leading-snug break-words">
+                    {rel.title}
+                  </h3>
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
       )}
+
+      {/* Transparent cover image lightbox */}
+      {coverLightboxOpen && showStandaloneCoverImage && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Просмотр иллюстрации"
+          onClick={() => setCoverLightboxOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-4xl w-full rounded-2xl border border-gold/60 bg-transparent backdrop-blur-2xl p-3 sm:p-5 shadow-2xl space-y-3"
+          >
+            <div className="flex items-center justify-between gap-3 text-[14px] text-sepia font-semibold">
+              <span className="truncate">{post.title}</span>
+              <button
+                type="button"
+                onClick={() => setCoverLightboxOpen(false)}
+                aria-label="Закрыть просмотр"
+                className="p-2 rounded-xl border border-sepia/25 hover:border-gold text-sepia cursor-pointer shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex items-center justify-center max-h-[75vh] overflow-hidden rounded-xl border border-sepia/20">
+              <img
+                src={normalizedCover}
+                alt={post.title}
+                referrerPolicy="no-referrer"
+                className="max-h-[72vh] w-auto object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+});

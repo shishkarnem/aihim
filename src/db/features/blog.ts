@@ -159,6 +159,45 @@ export function mapBlogRow(row: any): BlogPost {
 let blogSchemaReady = false;
 let blogInitPromise: Promise<void> | null = null;
 
+const BLOG_CACHE_TTL_MS = 5 * 60 * 1000;
+let publishedCache: {
+  posts: BlogPost[];
+  bySlug: Map<string, BlogPost>;
+  loadedAt: number;
+} | null = null;
+let publishedCacheInFlight: Promise<BlogPost[]> | null = null;
+
+export function invalidateBlogCache(): void {
+  publishedCache = null;
+}
+
+async function getCachedPublishedPosts(): Promise<BlogPost[]> {
+  const now = Date.now();
+  if (publishedCache && now - publishedCache.loadedAt < BLOG_CACHE_TTL_MS) {
+    return publishedCache.posts;
+  }
+  if (publishedCacheInFlight) {
+    return publishedCacheInFlight;
+  }
+
+  publishedCacheInFlight = (async () => {
+    const rows = await queryAll<any>(
+      `SELECT * FROM blog_posts WHERE COALESCE(published, TRUE) = TRUE ORDER BY ${BLOG_ORDER_SQL}`
+    );
+    const posts = rows.map(mapBlogRow);
+    const bySlug = new Map<string, BlogPost>();
+    for (const p of posts) {
+      bySlug.set(p.slug, p);
+    }
+    publishedCache = { posts, bySlug, loadedAt: Date.now() };
+    return posts;
+  })().finally(() => {
+    publishedCacheInFlight = null;
+  });
+
+  return publishedCacheInFlight;
+}
+
 export async function ensureBlogTableAndSeed(): Promise<void> {
   if (blogSchemaReady) return;
   if (blogInitPromise) return blogInitPromise;
@@ -277,10 +316,7 @@ export async function getPublishedBlogPosts(options: {
   category?: string;
   limit?: number;
 } = {}): Promise<BlogPost[]> {
-  const rows = await queryAll<any>(
-    `SELECT * FROM blog_posts WHERE COALESCE(published, TRUE) = TRUE ORDER BY ${BLOG_ORDER_SQL}`
-  );
-  let posts = rows.map(mapBlogRow);
+  let posts = await getCachedPublishedPosts();
 
   if (options.category && options.category !== 'Все') {
     const cat = options.category.trim().toLowerCase();
@@ -308,6 +344,7 @@ export async function getPublishedBlogPostsPaginated(options: {
   category?: string;
   offset?: number;
   limit?: number;
+  includeContent?: boolean;
 } = {}): Promise<{
   posts: BlogPost[];
   total: number;
@@ -316,10 +353,7 @@ export async function getPublishedBlogPostsPaginated(options: {
   categories: string[];
   pinnedCount: number;
 }> {
-  const rows = await queryAll<any>(
-    `SELECT * FROM blog_posts WHERE COALESCE(published, TRUE) = TRUE ORDER BY ${BLOG_ORDER_SQL}`
-  );
-  const allPublished = rows.map(mapBlogRow);
+  const allPublished = await getCachedPublishedPosts();
 
   const catSet = new Set<string>(['Все']);
   let pinnedCount = 0;
@@ -347,7 +381,10 @@ export async function getPublishedBlogPostsPaginated(options: {
 
   const safeOffset = Math.max(0, Number(options.offset) || 0);
   const safeLimit = Math.min(Math.max(1, Number(options.limit) || 20), 20);
-  const slice = filtered.slice(safeOffset, safeOffset + safeLimit);
+  const rawSlice = filtered.slice(safeOffset, safeOffset + safeLimit);
+  const slice = options.includeContent
+    ? rawSlice
+    : rawSlice.map((p) => ({ ...p, content_markdown: '' }));
   const nextOffset = safeOffset + slice.length;
 
   return {
@@ -369,14 +406,30 @@ export async function getBlogPostBySlug(
   slug: string,
   incrementViews = false
 ): Promise<BlogPost | null> {
+  if (!publishedCache || Date.now() - publishedCache.loadedAt >= BLOG_CACHE_TTL_MS) {
+    await getCachedPublishedPosts().catch(() => {});
+  }
+
+  const cachedPost = publishedCache?.bySlug.get(slug);
+  if (cachedPost) {
+    if (incrementViews) {
+      cachedPost.views_count = (Number(cachedPost.views_count) || 0) + 1;
+      void queryRun(
+        'UPDATE blog_posts SET views_count = COALESCE(views_count, 0) + 1 WHERE slug = $1',
+        [slug]
+      ).catch(() => {});
+    }
+    return cachedPost;
+  }
+
   const row = await queryGet<any>('SELECT * FROM blog_posts WHERE slug = $1', [slug]);
   if (!row) return null;
   if (incrementViews) {
-    await queryRun(
+    row.views_count = (Number(row.views_count) || 0) + 1;
+    void queryRun(
       'UPDATE blog_posts SET views_count = COALESCE(views_count, 0) + 1 WHERE slug = $1',
       [slug]
     ).catch(() => {});
-    row.views_count = (Number(row.views_count) || 0) + 1;
   }
   return mapBlogRow(row);
 }
@@ -469,6 +522,7 @@ export async function upsertBlogPost(
   );
 
   const saved = await queryGet<any>('SELECT * FROM blog_posts WHERE id = $1', [id]);
+  invalidateBlogCache();
   return mapBlogRow(saved);
 }
 
@@ -500,6 +554,7 @@ export async function pinBlogPost(id: string, pinned: boolean): Promise<BlogPost
   }
 
   const updated = await queryGet<any>('SELECT * FROM blog_posts WHERE id = $1', [id]);
+  invalidateBlogCache();
   return mapBlogRow(updated);
 }
 
@@ -519,9 +574,11 @@ export async function movePinnedBlogPost(id: string, direction: 'up' | 'down'): 
   for (let i = 0; i < pinnedRows.length; i++) {
     await queryRun('UPDATE blog_posts SET pinned_order = $1 WHERE id = $2', [i + 1, pinnedRows[i].id]);
   }
+  invalidateBlogCache();
 }
 
 export async function deleteBlogPost(id: string): Promise<boolean> {
   const res = await queryRun('DELETE FROM blog_posts WHERE id = $1', [id]);
+  invalidateBlogCache();
   return res.changes > 0;
 }

@@ -98,6 +98,9 @@ export default defineConfig(({mode}) => {
         },
         workbox: {
           importScripts: ['/push-sw.js'],
+          cleanupOutdatedCaches: true,
+          skipWaiting: true,
+          clientsClaim: true,
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,png,jpg,svg,ico,woff2}'],
           navigateFallback: '/index.html',
@@ -112,14 +115,6 @@ export default defineConfig(({mode}) => {
             /^\/file\//,
           ],
           runtimeCaching: [
-            {
-              urlPattern: /^\/api\/blog\//,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'aihim-blog-api',
-                expiration: { maxEntries: 50, maxAgeSeconds: 3600 },
-              },
-            },
             {
               urlPattern: /\.(?:png|jpg|jpeg|webp|svg|woff2)$/,
               handler: 'StaleWhileRevalidate',

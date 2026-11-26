@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Film, Maximize2, Quote, X } from 'lucide-react';
+import { NeurosphereLoader } from '../../../components/ui/NeurosphereLoader';
 
 export const SAV_DEFAULT_IMAGE_CLIENT =
   'https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQMJH0GOjgMOTE_BA9wETwiCzYmBQ95AyhoBSJLMhgZEyQdKwssKyoEUnQKdGsEfDonABIYETY4NRQmEV9uZlUAaA11VQJrCjgDAzkkAVczLRouDiMXfQxTNBdFGT8aIyw2ZyIcIQsIKjIuHhtsBXZSBGZ5T3FP.png';
@@ -53,76 +54,235 @@ export interface TgCollapsePayload {
   isOpen?: boolean;
 }
 
-export const TgVideoBlock: React.FC<{ item: TgMediaItem }> = ({ item }) => {
-  const [posterError, setPosterError] = useState(false);
-  const safeVideoUrl = !item.tooLarge && item.url && isSafeBlogUrl(item.url) ? item.url : '';
-  const safePostUrl = item.postUrl && isSafeBlogUrl(item.postUrl) ? item.postUrl : '';
-  const safePoster =
-    item.tooLarge && item.posterUrl && isSafeBlogUrl(item.posterUrl)
-      ? normalizeClientMediaUrl(item.posterUrl)
-      : '';
+export interface ProgressiveBlogImageProps {
+  src: string;
+  alt: string;
+  className?: string;
+  wrapperClassName?: string;
+  onClick?: () => void;
+  priority?: boolean;
+}
 
-  if (safeVideoUrl) {
-    return (
-      <figure className="my-5 rounded-2xl border border-sepia/25 bg-transparent backdrop-blur-sm overflow-hidden shadow-sm">
-        <video
-          src={safeVideoUrl}
-          controls
-          playsInline
-          preload="auto"
-          className="w-full max-h-[540px] object-contain"
-        />
-        {item.caption && (
-          <figcaption className="px-4 py-2.5 text-[14px] italic text-sepia/80 border-t border-sepia/15">
-            {item.caption}
-          </figcaption>
-        )}
-      </figure>
-    );
-  }
+export const ProgressiveBlogImage: React.FC<ProgressiveBlogImageProps> = memo(
+  ({ src, alt, className = '', wrapperClassName = '', onClick, priority = false }) => {
+    const initialSrc = normalizeClientMediaUrl(src);
+    const [imgSrc, setImgSrc] = useState(initialSrc);
+    const [loaded, setLoaded] = useState(false);
+    const imgRef = useRef<HTMLImageElement | null>(null);
 
-  return (
-    <div className="my-5 rounded-2xl border border-gold/40 bg-transparent backdrop-blur-md overflow-hidden shadow-sm">
-      {safePoster && !posterError && (
-        <div className="aspect-video w-full overflow-hidden border-b border-sepia/15">
-          <img
-            src={safePoster}
-            alt={item.caption || 'Превью видео из Telegram'}
-            referrerPolicy="no-referrer"
-            onError={() => setPosterError(true)}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
-      <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-[15px] font-bold text-sepia">
-            <Film size={18} className="text-gold shrink-0" />
-            <span>
-              Видеозапись{item.sizeMb ? ` (${item.sizeMb.toFixed(1)} МБ)` : ''} доступна в Telegram
-            </span>
+    useEffect(() => {
+      const next = normalizeClientMediaUrl(src);
+      setImgSrc((prev) => {
+        if (prev !== next) {
+          setLoaded(false);
+          return next;
+        }
+        return prev;
+      });
+    }, [src]);
+
+    useEffect(() => {
+      if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0) {
+        setLoaded(true);
+      }
+    }, [imgSrc]);
+
+    const content = (
+      <div className={`relative w-full h-full overflow-hidden bg-transparent ${wrapperClassName}`}>
+        {!loaded && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 flex items-center justify-center bg-transparent pointer-events-none"
+          >
+            <div className="scale-75 opacity-80">
+              <NeurosphereLoader label="Загрузка" size="sm" />
+            </div>
           </div>
+        )}
+        <img
+          ref={imgRef}
+          src={imgSrc}
+          alt={alt}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            if (imgSrc !== AIHIM_FALLBACK_COVER) {
+              setImgSrc(AIHIM_FALLBACK_COVER);
+            } else {
+              setLoaded(true);
+            }
+          }}
+          className={`w-full h-full transition-opacity duration-500 ${
+            loaded ? 'opacity-100' : 'opacity-0'
+          } ${className}`}
+        />
+      </div>
+    );
+
+    if (onClick) {
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          className="group relative block w-full h-full text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-gold"
+        >
+          {content}
+          <span
+            aria-hidden="true"
+            className="absolute top-3 right-3 p-2 rounded-lg border border-sepia/25 bg-transparent backdrop-blur-md text-sepia opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <Maximize2 size={15} />
+          </span>
+        </button>
+      );
+    }
+
+    return content;
+  }
+);
+
+export const TgVideoBlock: React.FC<{ item: TgMediaItem }> = memo(
+  ({ item }) => {
+    const [posterError, setPosterError] = useState(false);
+    const [shouldLoadMeta, setShouldLoadMeta] = useState(false);
+    const [isBuffering, setIsBuffering] = useState(false);
+    const [hasError, setHasError] = useState(false);
+    const containerRef = useRef<HTMLElement | null>(null);
+
+    const safeVideoUrl = !item.tooLarge && item.url && isSafeBlogUrl(item.url) ? item.url.trim() : '';
+    const safePostUrl = item.postUrl && isSafeBlogUrl(item.postUrl) ? item.postUrl.trim() : '';
+    const safePoster =
+      item.tooLarge && item.posterUrl && isSafeBlogUrl(item.posterUrl)
+        ? normalizeClientMediaUrl(item.posterUrl)
+        : '';
+
+    useEffect(() => {
+      if (!safeVideoUrl) return;
+      const el = containerRef.current;
+      if (!el || typeof IntersectionObserver === 'undefined') {
+        setShouldLoadMeta(true);
+        return;
+      }
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting) {
+            setShouldLoadMeta(true);
+            observer.disconnect();
+          }
+        },
+        { rootMargin: '320px 0px' }
+      );
+      observer.observe(el);
+      return () => observer.disconnect();
+    }, [safeVideoUrl]);
+
+    if (safeVideoUrl) {
+      return (
+        <figure
+          ref={containerRef}
+          className="my-5 rounded-2xl border border-sepia/25 bg-transparent backdrop-blur-sm overflow-hidden shadow-sm"
+        >
+          <div className="relative w-full min-h-[220px] flex items-center justify-center bg-transparent">
+            <video
+              key={safeVideoUrl}
+              src={safeVideoUrl}
+              controls
+              playsInline
+              preload={shouldLoadMeta ? 'metadata' : 'none'}
+              onLoadStart={() => setIsBuffering(true)}
+              onLoadedMetadata={() => setIsBuffering(false)}
+              onLoadedData={() => setIsBuffering(false)}
+              onCanPlay={() => setIsBuffering(false)}
+              onPlaying={() => setIsBuffering(false)}
+              onWaiting={() => setIsBuffering(true)}
+              onError={() => {
+                setIsBuffering(false);
+                setHasError(true);
+              }}
+              className="w-full max-h-[540px] object-contain"
+            />
+            {isBuffering && !hasError && (
+              <div className="pointer-events-none absolute top-3 right-3 px-3 py-1.5 rounded-xl border border-gold/45 bg-transparent backdrop-blur-md text-[14px] text-sepia font-semibold">
+                Подгрузка видео...
+              </div>
+            )}
+          </div>
+          {hasError && safePostUrl && (
+            <div className="px-4 py-3 border-t border-sepia/15 flex flex-wrap items-center justify-between gap-2 text-[14px] text-sepia">
+              <span>Не удалось воспроизвести видео в браузере.</span>
+              <a
+                href={safePostUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 font-bold text-amber-900 underline underline-offset-4"
+              >
+                <span>Открыть в Telegram</span>
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          )}
           {item.caption && (
-            <p className="text-[14px] text-sepia/80 leading-relaxed">{item.caption}</p>
+            <figcaption className="px-4 py-2.5 text-[14px] italic text-sepia/80 border-t border-sepia/15">
+              {item.caption}
+            </figcaption>
+          )}
+        </figure>
+      );
+    }
+
+    return (
+      <div className="my-5 rounded-2xl border border-gold/40 bg-transparent backdrop-blur-md overflow-hidden shadow-sm">
+        {safePoster && !posterError && (
+          <div className="aspect-video w-full overflow-hidden border-b border-sepia/15">
+            <img
+              src={safePoster}
+              alt={item.caption || 'Превью видео из Telegram'}
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+              onError={() => setPosterError(true)}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-[15px] font-bold text-sepia">
+              <Film size={18} className="text-gold shrink-0" />
+              <span>
+                Видеозапись{item.sizeMb ? ` (${item.sizeMb.toFixed(1)} МБ)` : ''} доступна в Telegram
+              </span>
+            </div>
+            {item.caption && (
+              <p className="text-[14px] text-sepia/80 leading-relaxed">{item.caption}</p>
+            )}
+          </div>
+          {safePostUrl && (
+            <a
+              href={safePostUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C9A343] to-[#B48A2D] hover:brightness-105 text-ink font-bold text-[14px] shadow-sm transition-all shrink-0"
+            >
+              <span>Смотреть видео в Telegram</span>
+              <ExternalLink size={15} />
+            </a>
           )}
         </div>
-        {safePostUrl && (
-          <a
-            href={safePostUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C9A343] to-[#B48A2D] hover:brightness-105 text-ink font-bold text-[14px] shadow-sm transition-all shrink-0"
-          >
-            <span>Смотреть видео в Telegram</span>
-            <ExternalLink size={15} />
-          </a>
-        )}
       </div>
-    </div>
-  );
-};
+    );
+  },
+  (prev, next) =>
+    prev.item.url === next.item.url &&
+    prev.item.tooLarge === next.item.tooLarge &&
+    prev.item.posterUrl === next.item.posterUrl &&
+    prev.item.postUrl === next.item.postUrl &&
+    prev.item.caption === next.item.caption
+);
 
-export const TgGalleryBlock: React.FC<{ items: TgMediaItem[] }> = ({ items }) => {
+export const TgGalleryBlock: React.FC<{ items: TgMediaItem[] }> = memo(({ items }) => {
   const photos = items.filter((m) => m.type !== 'video' && m.url && isSafeBlogUrl(m.url));
   const videos = items.filter((m) => m.type === 'video');
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
@@ -158,17 +318,16 @@ export const TgGalleryBlock: React.FC<{ items: TgMediaItem[] }> = ({ items }) =>
                 onClick={() => setLightboxIdx(idx)}
                 className="group relative rounded-2xl border border-sepia/25 overflow-hidden bg-transparent cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-gold"
               >
-                <div className="aspect-[4/3] w-full overflow-hidden">
-                  <img
+                <div className={photos.length === 1 ? 'aspect-[16/10] w-full overflow-hidden' : 'aspect-[4/3] w-full overflow-hidden'}>
+                  <ProgressiveBlogImage
                     src={safeImg}
                     alt={photo.caption || `Изображение ${idx + 1}`}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
                 <span
                   aria-hidden="true"
-                  className="absolute top-2.5 right-2.5 p-2 rounded-lg border border-sepia/25 bg-parchment/85 backdrop-blur-md text-sepia opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2.5 right-2.5 p-2 rounded-lg border border-sepia/25 bg-transparent backdrop-blur-md text-sepia opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Maximize2 size={15} />
                 </span>
@@ -250,9 +409,9 @@ export const TgGalleryBlock: React.FC<{ items: TgMediaItem[] }> = ({ items }) =>
       )}
     </div>
   );
-};
+});
 
-export const TgButtonsBlock: React.FC<{ rows: TgButtonItem[][] }> = ({ rows }) => {
+export const TgButtonsBlock: React.FC<{ rows: TgButtonItem[][] }> = memo(({ rows }) => {
   const validRows = (Array.isArray(rows) ? rows : [])
     .map((row) =>
       (Array.isArray(row) ? row : []).filter(
@@ -298,12 +457,12 @@ export const TgButtonsBlock: React.FC<{ rows: TgButtonItem[][] }> = ({ rows }) =
       ))}
     </div>
   );
-};
+});
 
 export const TgCollapseBlock: React.FC<{
   payload: TgCollapsePayload;
   renderMarkdown: (md: string) => React.ReactNode;
-}> = ({ payload, renderMarkdown }) => {
+}> = memo(({ payload, renderMarkdown }) => {
   const hasSummary = Boolean(payload.summary && payload.summary.trim());
   const [expanded, setExpanded] = useState<boolean>(Boolean(payload.isOpen));
 
@@ -377,4 +536,4 @@ export const TgCollapseBlock: React.FC<{
       </div>
     </div>
   );
-};
+});

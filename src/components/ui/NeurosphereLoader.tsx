@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { motion } from 'motion/react';
 
 interface NeurosphereLoaderProps {
@@ -31,6 +31,9 @@ export const NeurosphereLoader: React.FC<NeurosphereLoaderProps> = ({
   className = ''
 }) => {
   const dimensions = size === 'sm' ? 68 : size === 'lg' ? 120 : 92;
+  const uid = useId().replace(/:/g, '');
+  const coreGradId = `neurosphereCoreGrad-${uid}`;
+  const ringGradId = `neurosphereRingGrad-${uid}`;
 
   return (
     <div
@@ -50,12 +53,12 @@ export const NeurosphereLoader: React.FC<NeurosphereLoaderProps> = ({
           aria-hidden="true"
         >
           <defs>
-            <radialGradient id="neurosphereCoreGrad" cx="50%" cy="50%" r="50%">
+            <radialGradient id={coreGradId} cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.85" />
               <stop offset="55%" stopColor="#b45309" stopOpacity="0.35" />
               <stop offset="100%" stopColor="#78350f" stopOpacity="0" />
             </radialGradient>
-            <linearGradient id="neurosphereRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id={ringGradId} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#d97706" stopOpacity="0.95" />
               <stop offset="50%" stopColor="#c9a343" stopOpacity="0.45" />
               <stop offset="100%" stopColor="#78350f" stopOpacity="0.9" />
@@ -67,7 +70,7 @@ export const NeurosphereLoader: React.FC<NeurosphereLoaderProps> = ({
             cx="60"
             cy="60"
             r="34"
-            fill="url(#neurosphereCoreGrad)"
+            fill={`url(#${coreGradId})`}
             animate={{ scale: [0.92, 1.08, 0.92], opacity: [0.55, 0.95, 0.55] }}
             transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
             style={{ transformOrigin: '60px 60px' }}
@@ -96,7 +99,7 @@ export const NeurosphereLoader: React.FC<NeurosphereLoaderProps> = ({
               rx="48"
               ry="19"
               fill="none"
-              stroke="url(#neurosphereRingGrad)"
+              stroke={`url(#${ringGradId})`}
               strokeWidth="1.6"
               strokeDasharray="10 6"
               transform="rotate(28 60 60)"

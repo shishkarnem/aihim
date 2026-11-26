@@ -28,6 +28,7 @@ import { BlogMarkdownRenderer } from './BlogMarkdownRenderer';
 import { resolveCardVideoUrl, type BlogArticleItem } from './BlogListPage';
 import { NeurosphereLoader } from '../../components/ui/NeurosphereLoader';
 import { AIHIM_FALLBACK_COVER, normalizeClientMediaUrl } from './components/BlogRichBlocks';
+import { invalidateClientBlogCache } from './components/blogCache';
 
 const PRESET_COVERS = [
   { label: 'Алхимия ИИ', url: '/file/13/blog_01_ai_transmutation.jpg' },
@@ -122,6 +123,7 @@ export const BlogAdminBuilder: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Не удалось синхронизировать RSS');
       }
+      invalidateClientBlogCache();
       await loadPosts();
       setStatusMsg(
         `RSS SAV AI синхронизирован (${data.sourceDomain}): добавлено ${data.added}, обновлено ${data.updated}, без изменений ${data.skipped}.`
@@ -148,6 +150,7 @@ export const BlogAdminBuilder: React.FC = () => {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Не удалось изменить закрепление');
       }
+      invalidateClientBlogCache();
       await loadPosts();
       setStatusMsg(
         nextPinned
@@ -169,7 +172,10 @@ export const BlogAdminBuilder: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ direction })
       });
-      if (res.ok) await loadPosts();
+      if (res.ok) {
+        invalidateClientBlogCache();
+        await loadPosts();
+      }
     } catch {
       // ignore
     } finally {
@@ -293,6 +299,7 @@ export const BlogAdminBuilder: React.FC = () => {
       }
 
       const saved: BlogArticleItem = data.post;
+      invalidateClientBlogCache();
       handleEditPost(saved);
       await loadPosts();
       setStatusMsg(
@@ -311,6 +318,7 @@ export const BlogAdminBuilder: React.FC = () => {
     try {
       const res = await fetch(`/api/blog/posts/${encodeURIComponent(post.id)}`, { method: 'DELETE' });
       if (res.ok) {
+        invalidateClientBlogCache();
         if (form.id === post.id) handleNewPost();
         await loadPosts();
         setStatusMsg(`Статья «${post.title}» удалена.`);
